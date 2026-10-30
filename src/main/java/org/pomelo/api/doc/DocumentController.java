@@ -10,6 +10,7 @@ import org.pomelo.common.enums.DocStatus;
 import org.pomelo.domain.doc.DocChunk;
 import org.pomelo.domain.doc.DocMetadata;
 import org.pomelo.domain.doc.Document;
+import org.pomelo.domain.kb.KbStats;
 import org.pomelo.service.DocumentService;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -242,7 +243,7 @@ public class DocumentController {
 
     // ---- 统计监控 ----
     @GetMapping("/stats/{kbId}")
-    public Result<DocumentService.KbStats> getStats(@PathVariable String kbId) {
+    public Result<KbStats> getStats(@PathVariable String kbId) {
         return Result.ok(docService.getStats(kbId));
     }
 }

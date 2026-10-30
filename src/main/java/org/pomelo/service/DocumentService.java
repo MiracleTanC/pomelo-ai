@@ -16,6 +16,7 @@ import org.pomelo.domain.doc.DocMetadata;
 import org.pomelo.domain.doc.DocTag;
 import org.pomelo.domain.doc.Document;
 import org.pomelo.domain.kb.KnowledgeBase;
+import org.pomelo.domain.kb.KbStats;
 import org.pomelo.domain.kb.MetaFieldConfig;
 import org.pomelo.domain.parser.ParsedBlock;
 import org.pomelo.domain.parser.ParsedDocument;
@@ -797,48 +798,5 @@ public class DocumentService {
         stats.setMetaFieldCount(configs.size());
 
         return stats;
-    }
-
-    public static class KbStats {
-        private int docCount;
-        private int chunkCount;
-        private int chunkSize;
-        private int topK;
-        private boolean autoVectorize;
-        private String chunkStrategy;
-        private int totalDocs;
-        private int indexedDocs;
-        private int pendingDocs;
-        private int failedDocs;
-        private int totalChunks;
-        private int totalVectorized;
-        private int metaFieldCount;
-
-        public int getDocCount() { return docCount; }
-        public void setDocCount(int v) { this.docCount = v; }
-        public int getChunkCount() { return chunkCount; }
-        public void setChunkCount(int v) { this.chunkCount = v; }
-        public int getChunkSize() { return chunkSize; }
-        public void setChunkSize(int v) { this.chunkSize = v; }
-        public int getTopK() { return topK; }
-        public void setTopK(int v) { this.topK = v; }
-        public boolean isAutoVectorize() { return autoVectorize; }
-        public void setAutoVectorize(boolean v) { this.autoVectorize = v; }
-        public String getChunkStrategy() { return chunkStrategy; }
-        public void setChunkStrategy(String v) { this.chunkStrategy = v; }
-        public int getTotalDocs() { return totalDocs; }
-        public void setTotalDocs(int v) { this.totalDocs = v; }
-        public int getIndexedDocs() { return indexedDocs; }
-        public void setIndexedDocs(int v) { this.indexedDocs = v; }
-        public int getPendingDocs() { return pendingDocs; }
-        public void setPendingDocs(int v) { this.pendingDocs = v; }
-        public int getFailedDocs() { return failedDocs; }
-        public void setFailedDocs(int v) { this.failedDocs = v; }
-        public int getTotalChunks() { return totalChunks; }
-        public void setTotalChunks(int v) { this.totalChunks = v; }
-        public int getTotalVectorized() { return totalVectorized; }
-        public void setTotalVectorized(int v) { this.totalVectorized = v; }
-        public int getMetaFieldCount() { return metaFieldCount; }
-        public void setMetaFieldCount(int v) { this.metaFieldCount = v; }
     }
 }
