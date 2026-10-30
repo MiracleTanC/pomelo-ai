@@ -17,6 +17,7 @@ import org.pomelo.domain.doc.DocTag;
 import org.pomelo.domain.doc.Document;
 import org.pomelo.domain.kb.KnowledgeBase;
 import org.pomelo.domain.kb.MetaFieldConfig;
+import org.pomelo.domain.parser.ParsedBlock;
 import org.pomelo.domain.parser.ParsedDocument;
 import org.pomelo.mapper.DocChunkMapper;
 import org.pomelo.mapper.DocFolderMapper;
@@ -24,7 +25,9 @@ import org.pomelo.mapper.DocMetadataMapper;
 import org.pomelo.mapper.DocTagMapper;
 import org.pomelo.mapper.DocumentMapper;
 import org.pomelo.mapper.MetaFieldConfigMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,6 +68,11 @@ public class DocumentService {
     private final MetadataExtractor metadataExtractor;
     private final org.pomelo.core.rag.Bm25Indexer bm25Indexer;
 
+    /** 自注入代理对象，解决 @Async / @Transactional 自调用失效问题 */
+    @Autowired
+    @Lazy
+    private DocumentService self;
+
     @Value("${pomelo.storage.upload-dir}")
     private String uploadDir;
 
@@ -102,7 +110,7 @@ public class DocumentService {
 
         // 若知识库开启自动向量化，异步触发完整流水线
         if (kbService.getEntity(kbId).isAutoVectorize()) {
-            ingest(doc.getId());
+            self.ingest(doc.getId());
         }
         return doc;
     }
@@ -139,7 +147,7 @@ public class DocumentService {
 
             // 提取元数据（失败不阻断解析流程）
             try {
-                extractAndSaveMetadata(doc);
+                self.extractAndSaveMetadata(doc);
             } catch (Exception e) {
                 log.warn("元数据提取失败(不影响解析): {} -> {}", doc.getName(), e.getMessage());
             }
@@ -231,12 +239,12 @@ public class DocumentService {
                 updateStatus(doc, DocStatus.PARSING, null);
                 ParsedDocument parsed = parser.parse(Path.of(doc.getFilePath()), doc.getName());
                 String parsedContent = parsed.blocks().stream()
-                        .map(b -> b.text()).collect(Collectors.joining("\n\n"));
+                        .map(ParsedBlock::text).collect(Collectors.joining("\n\n"));
                 doc.setParsedContent(parsedContent);
                 doc.setParsedAt(Instant.now());
                 docRepository.update(doc);
                 try {
-                    extractAndSaveMetadata(doc);
+                    self.extractAndSaveMetadata(doc);
                 } catch (Exception e) {
                     log.warn("元数据提取失败(不影响入库): {} -> {}", doc.getName(), e.getMessage());
                 }
@@ -279,7 +287,7 @@ public class DocumentService {
     /** 批量向量化：对多篇文档依次执行完整流水线 */
     public void batchVectorize(List<String> docIds) {
         for (String docId : docIds) {
-            ingest(docId);
+            self.ingest(docId);
         }
         log.info("批量向量化任务已提交: {} 篇文档", docIds.size());
     }
@@ -291,7 +299,7 @@ public class DocumentService {
                 DocStatus.PARSE_FAILED, DocStatus.CHUNK_FAILED, DocStatus.VECTOR_FAILED);
         List<Document> docs = docRepository.findByKbIdAndStatusIn(kbId, pending);
         for (Document doc : docs) {
-            ingest(doc.getId());
+            self.ingest(doc.getId());
         }
         log.info("全库向量化任务已提交: {} 篇文档", docs.size());
     }
@@ -337,10 +345,6 @@ public class DocumentService {
         metadataRepository.deleteByDocId(docId);
         // 删标签
         tagRepository.deleteByDocId(docId);
-        // 更新知识库统计
-        if (doc.getStatus() == DocStatus.INDEXED) {
-            kbService.incrStats(doc.getKbId(), -1, -doc.getChunkCount());
-        }
         // 删本地文件
         try {
             if (doc.getFilePath() != null) {
@@ -356,25 +360,26 @@ public class DocumentService {
 
     // ==================== 重新解析 ====================
 
-    /** 重新解析：清除旧解析结果和切片，重新提取 */
+    /** 重新解析：清除旧结果，重新走完整流水线（解析→切片→向量化） */
     @Async("ingestExecutor")
     public void reParse(String docId) {
         Document doc = getEntity(docId);
         // 若已索引，先删 Milvus 向量
         if (doc.getStatus() == DocStatus.INDEXED) {
             vectorStore.deleteByDoc(doc.getKbId(), docId);
-            kbService.incrStats(doc.getKbId(), -1, -doc.getChunkCount());
         }
         // 删旧切片
         chunkRepository.deleteByDocId(docId);
+        // 清空旧结果，重置为上传状态
         doc.setParsedContent(null);
         doc.setChunkCount(0);
         doc.setVectorizedChunks(0);
         doc.setParsedAt(null);
         doc.setChunkedAt(null);
         doc.setVectorizedAt(null);
-        docRepository.update(doc);
-        parse(docId);
+        updateStatus(doc, DocStatus.UPLOADED, null);
+        // 走完整流水线（通过代理对象调用，确保 @Async 生效）
+        self.ingest(docId);
     }
 
     // ==================== 切片编辑 + 增量向量化 ====================
@@ -560,7 +565,6 @@ public class DocumentService {
         doc.setUpdatedAt(Instant.now());
         docRepository.update(doc);
 
-        kbService.incrStats(doc.getKbId(), 1, chunks.size());
         log.info("向量化完成: {} -> {} 切片", doc.getName(), pending.size());
 
         // 向量化元数据（摘要/关键词）
@@ -615,7 +619,8 @@ public class DocumentService {
         doc.setVectorizedChunks(0);
     }
 
-    private void extractAndSaveMetadata(Document doc) {
+    @Transactional
+    public void extractAndSaveMetadata(Document doc) {
         List<MetaFieldConfig> configs = metaFieldConfigRepository
                 .findByKbIdAndEnabledTrueOrderBySortOrderAsc(doc.getKbId());
         if (configs.isEmpty()) return;
@@ -632,7 +637,10 @@ public class DocumentService {
 
     // ==================== 内部方法 ====================
 
-    @Transactional
+    /**
+     * 更新文档状态（单条 UPDATE，天然原子，无需 @Transactional）。
+     * 直接调用即可，不经过代理。
+     */
     public void updateStatus(Document doc, DocStatus status, String errorMsg) {
         doc.setStatus(status);
         doc.setErrorMsg(errorMsg);
@@ -743,7 +751,7 @@ public class DocumentService {
         for (Document doc : docs) {
             if (doc.getParsedContent() == null || doc.getParsedContent().isBlank()) continue;
             try {
-                extractAndSaveMetadata(doc);
+                self.extractAndSaveMetadata(doc);
                 count++;
             } catch (Exception e) {
                 log.warn("元数据提取失败: {} -> {}", doc.getName(), e.getMessage());
@@ -757,16 +765,23 @@ public class DocumentService {
     public KbStats getStats(String kbId) {
         KbStats stats = new KbStats();
         KnowledgeBase kb = kbService.getEntity(kbId);
-        stats.setDocCount(kb.getDocCount());
-        stats.setChunkCount(kb.getChunkCount());
         stats.setChunkSize(kb.getChunkSize());
         stats.setTopK(kb.getTopK());
         stats.setAutoVectorize(kb.isAutoVectorize());
         stats.setChunkStrategy(kb.getChunkStrategy());
 
-        List<Document> docs = docRepository.findByKbIdOrderByCreatedAtDesc(kbId);
-        stats.setTotalDocs(docs.size());
+        // 实时从 doc 表聚合
+        int totalDocs = docRepository.countByKbId(kbId);
+        int totalChunks = docRepository.sumChunkCountByKbId(kbId);
+        int totalVectorized = docRepository.sumVectorizedChunksByKbId(kbId);
+        stats.setDocCount(totalDocs);
+        stats.setChunkCount(totalChunks);
+        stats.setTotalDocs(totalDocs);
+        stats.setTotalChunks(totalChunks);
+        stats.setTotalVectorized(totalVectorized);
+
         int indexed = 0, pending = 0, failed = 0;
+        List<Document> docs = docRepository.findByKbIdOrderByCreatedAtDesc(kbId);
         for (Document d : docs) {
             if (d.getStatus() == DocStatus.INDEXED) indexed++;
             else if (d.getStatus().isTerminal()) failed++;
@@ -776,8 +791,6 @@ public class DocumentService {
         stats.setIndexedDocs(indexed);
         stats.setPendingDocs(pending);
         stats.setFailedDocs(failed);
-        stats.setTotalChunks(docs.stream().mapToInt(Document::getChunkCount).sum());
-        stats.setTotalVectorized(docs.stream().mapToInt(Document::getVectorizedChunks).sum());
 
         // 元数据字段数
         List<MetaFieldConfig> configs = metaFieldConfigRepository.findByKbIdOrderBySortOrderAsc(kbId);

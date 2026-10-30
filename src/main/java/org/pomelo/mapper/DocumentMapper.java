@@ -20,9 +20,15 @@ public interface DocumentMapper {
 
     Document findByKbIdAndSha256(@Param("kbId") String kbId, @Param("sha256") String sha256);
 
-    long countByKbId(String kbId);
+    int countByKbId(String kbId);
 
-    long countByKbIdAndStatus(@Param("kbId") String kbId, @Param("status") DocStatus status);
+    int countByKbIdAndStatus(@Param("kbId") String kbId, @Param("status") DocStatus status);
+
+    /** 聚合：知识库下所有文档的切片总数 */
+    int sumChunkCountByKbId(String kbId);
+
+    /** 聚合：知识库下所有文档的已向量化切片总数 */
+    int sumVectorizedChunksByKbId(String kbId);
 
     int insert(Document doc);
 

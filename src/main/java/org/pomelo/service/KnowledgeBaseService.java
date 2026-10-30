@@ -27,6 +27,7 @@ public class KnowledgeBaseService {
     private final KnowledgeBaseMapper kbRepository;
     private final MetaFieldConfigMapper metaFieldConfigRepository;
     private final MilvusVectorStore vectorStore;
+    private final org.pomelo.mapper.DocumentMapper documentMapper;
 
     @Transactional
     public KbVo create(KbCreateRequest req) {
@@ -211,8 +212,11 @@ public class KnowledgeBaseService {
     // ==================== VO 转换 ====================
 
     private KbVo toVo(KnowledgeBase kb) {
+        // 实时从 doc 表聚合，不依赖 KB 表缓存字段
+        int docCount = documentMapper.countByKbId(kb.getId());
+        int chunkCount = documentMapper.sumChunkCountByKbId(kb.getId());
         return new KbVo(kb.getId(), kb.getName(), kb.getDescription(),
-                kb.getCollectionName(), kb.getDocCount(), kb.getChunkCount(),
+                kb.getCollectionName(), docCount, chunkCount,
                 kb.getChunkSize(), kb.getChunkOverlap(), kb.getTopK(),
                 kb.getRerankTopK(), kb.getSimilarityThreshold(), kb.isAutoVectorize(),
                 kb.getChunkStrategy(), kb.getCreatedAt(), kb.getUpdatedAt());

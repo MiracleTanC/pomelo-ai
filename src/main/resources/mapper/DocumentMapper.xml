@@ -23,6 +23,12 @@
     <select id="countByKbIdAndStatus" resultType="int">
         SELECT COUNT(*) FROM doc WHERE kb_id = #{kbId} AND status = #{status}
     </select>
+    <select id="sumChunkCountByKbId" resultType="int">
+        SELECT COALESCE(SUM(chunk_count), 0) FROM doc WHERE kb_id = #{kbId} AND status != 'DELETED'
+    </select>
+    <select id="sumVectorizedChunksByKbId" resultType="int">
+        SELECT COALESCE(SUM(vectorized_chunks), 0) FROM doc WHERE kb_id = #{kbId} AND status != 'DELETED'
+    </select>
     <insert id="insert">
         INSERT INTO doc (id, kb_id, name, file_path, file_size, mime_type, sha256, parsed_content,
             status, chunk_count, vectorized_chunks, error_msg, created_at, updated_at, parsed_at,
