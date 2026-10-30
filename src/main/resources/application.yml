@@ -1,0 +1,71 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: pomelo-ai
+  datasource:
+    url: jdbc:mysql://localhost:3306/pomelo_ai?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+pomelo:
+  storage:
+    upload-dir: ./data/uploads
+  cors:
+    # 前端独立部署的访问地址（逗号分隔），开发用 5173/5174，生产加实际域名
+    allowed-origins: http://localhost:5173,http://localhost:5174
+  ollama:
+    base-url: http://localhost:11434
+    chat-model: qwen2.5:7b
+    embed-model: nomic-embed-text
+    embed-dimension: 768
+    temperature: 0.7
+    num-predict: 2048
+    timeout-seconds: 300
+  milvus:
+    host: localhost
+    port: 19530
+    collection-prefix: pomelo_
+  mineru:
+    enabled: false
+    base-url: http://localhost:8000
+    tier: standard
+    timeout-seconds: 600
+  chunk:
+    size: 500
+    overlap: 50
+  rag:
+    top-k: 8
+    rerank-top-k: 4
+    max-iterations: 3
+  auth:
+    username: admin
+    password: admin123
+    token-ttl-minutes: 720
+
+logging:
+  level:
+    org.pomelo: INFO
+    dev.langchain4j: WARN
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: org.pomelo.domain
+  configuration:
+    map-underscore-to-camel-case: true
+    default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler

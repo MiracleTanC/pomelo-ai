@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.pomelo.mapper.DocMetadataMapper">
+    <select id="findByDocId" resultType="org.pomelo.domain.doc.DocMetadata">
+        SELECT * FROM doc_metadata WHERE doc_id = #{docId}
+    </select>
+    <select id="findByDocIdIn" resultType="org.pomelo.domain.doc.DocMetadata">
+        SELECT * FROM doc_metadata WHERE doc_id IN
+        <foreach collection="docIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+    <delete id="deleteByDocId">
+        DELETE FROM doc_metadata WHERE doc_id = #{docId}
+    </delete>
+    <insert id="insert">
+        INSERT INTO doc_metadata (id, doc_id, kb_id, field_key, field_name, field_value, created_at, updated_at)
+        VALUES (#{id}, #{docId}, #{kbId}, #{fieldKey}, #{fieldName}, #{fieldValue}, #{createdAt}, #{updatedAt})
+    </insert>
+    <insert id="batchInsert">
+        INSERT INTO doc_metadata (id, doc_id, kb_id, field_key, field_name, field_value, created_at, updated_at) VALUES
+        <foreach collection="list" item="m" separator=",">(#{m.id}, #{m.docId}, #{m.kbId}, #{m.fieldKey},
+            #{m.fieldName}, #{m.fieldValue}, #{m.createdAt}, #{m.updatedAt})</foreach>
+    </insert>
+    <delete id="deleteById">
+        DELETE FROM doc_metadata WHERE id = #{id}
+    </delete>
+</mapper>

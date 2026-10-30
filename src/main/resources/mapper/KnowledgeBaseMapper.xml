@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.pomelo.mapper.KnowledgeBaseMapper">
+    <select id="findById" resultType="org.pomelo.domain.kb.KnowledgeBase">
+        SELECT * FROM knowledge_base WHERE id = #{id}
+    </select>
+    <select id="findAll" resultType="org.pomelo.domain.kb.KnowledgeBase">
+        SELECT * FROM knowledge_base ORDER BY created_at DESC
+    </select>
+    <insert id="insert">
+        INSERT INTO knowledge_base (id, name, description, collection_name, top_k, rerank_top_k,
+            similarity_threshold, chunk_size, chunk_overlap, auto_vectorize, chunk_strategy,
+            doc_count, chunk_count, created_at, updated_at)
+        VALUES (#{id}, #{name}, #{description}, #{collectionName}, #{topK}, #{rerankTopK},
+            #{similarityThreshold}, #{chunkSize}, #{chunkOverlap}, #{autoVectorize}, #{chunkStrategy},
+            #{docCount}, #{chunkCount}, #{createdAt}, #{updatedAt})
+    </insert>
+    <update id="update">
+        UPDATE knowledge_base SET name=#{name}, description=#{description}, collection_name=#{collectionName},
+            top_k=#{topK}, rerank_top_k=#{rerankTopK}, similarity_threshold=#{similarityThreshold},
+            chunk_size=#{chunkSize}, chunk_overlap=#{chunkOverlap}, auto_vectorize=#{autoVectorize},
+            chunk_strategy=#{chunkStrategy}, doc_count=#{docCount}, chunk_count=#{chunkCount},
+            updated_at=#{updatedAt}
+        WHERE id=#{id}
+    </update>
+    <delete id="deleteById">
+        DELETE FROM knowledge_base WHERE id = #{id}
+    </delete>
+</mapper>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.pomelo.mapper.DocFolderMapper">
+    <select id="findByKbIdOrderBySortOrderAsc" resultType="org.pomelo.domain.doc.DocFolder">
+        SELECT * FROM doc_folder WHERE kb_id = #{kbId} ORDER BY sort_order ASC
+    </select>
+    <select id="findByKbIdAndParentIdOrderBySortOrderAsc" resultType="org.pomelo.domain.doc.DocFolder">
+        SELECT * FROM doc_folder WHERE kb_id = #{kbId} AND parent_id = #{parentId} ORDER BY sort_order ASC
+    </select>
+    <delete id="deleteByKbId">
+        DELETE FROM doc_folder WHERE kb_id = #{kbId}
+    </delete>
+    <insert id="insert">
+        INSERT INTO doc_folder (id, kb_id, parent_id, name, sort_order, created_at)
+        VALUES (#{id}, #{kbId}, #{parentId}, #{name}, #{sortOrder}, #{createdAt})
+    </insert>
+    <delete id="deleteById">
+        DELETE FROM doc_folder WHERE id = #{id}
+    </delete>
+</mapper>

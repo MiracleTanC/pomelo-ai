@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.pomelo.mapper.DocChunkMapper">
+    <select id="findById" resultType="org.pomelo.domain.doc.DocChunk">
+        SELECT * FROM doc_chunk WHERE id = #{id}
+    </select>
+    <select id="findByDocIdOrderByChunkIndexAsc" resultType="org.pomelo.domain.doc.DocChunk">
+        SELECT * FROM doc_chunk WHERE doc_id = #{docId} ORDER BY chunk_index ASC
+    </select>
+    <select id="findByDocId" resultType="org.pomelo.domain.doc.DocChunk">
+        SELECT * FROM doc_chunk WHERE doc_id = #{docId}
+    </select>
+    <select id="findByKbId" resultType="org.pomelo.domain.doc.DocChunk">
+        SELECT * FROM doc_chunk WHERE kb_id = #{kbId}
+    </select>
+    <select id="findByKbIdAndStatus" resultType="org.pomelo.domain.doc.DocChunk">
+        SELECT * FROM doc_chunk WHERE kb_id = #{kbId} AND status = #{status}
+    </select>
+    <delete id="deleteByDocId">
+        DELETE FROM doc_chunk WHERE doc_id = #{docId}
+    </delete>
+    <select id="countByDocId" resultType="int">
+        SELECT COUNT(*) FROM doc_chunk WHERE doc_id = #{docId}
+    </select>
+    <select id="countByDocIdAndStatus" resultType="int">
+        SELECT COUNT(*) FROM doc_chunk WHERE doc_id = #{docId} AND status = #{status}
+    </select>
+    <insert id="insert">
+        INSERT INTO doc_chunk (id, doc_id, kb_id, chunk_index, content, page, char_count, content_hash,
+            status, created_at, updated_at)
+        VALUES (#{id}, #{docId}, #{kbId}, #{chunkIndex}, #{content}, #{page}, #{charCount}, #{contentHash},
+            #{status}, #{createdAt}, #{updatedAt})
+    </insert>
+    <insert id="batchInsert">
+        INSERT INTO doc_chunk (id, doc_id, kb_id, chunk_index, content, page, char_count, content_hash,
+            status, created_at, updated_at) VALUES
+        <foreach collection="list" item="c" separator=",">(#{c.id}, #{c.docId}, #{c.kbId}, #{c.chunkIndex},
+            #{c.content}, #{c.page}, #{c.charCount}, #{c.contentHash}, #{c.status}, #{c.createdAt}, #{c.updatedAt})</foreach>
+    </insert>
+    <update id="update">
+        UPDATE doc_chunk SET content=#{content}, page=#{page}, char_count=#{charCount},
+            content_hash=#{contentHash}, status=#{status}, updated_at=#{updatedAt}
+        WHERE id=#{id}
+    </update>
+    <delete id="deleteById">
+        DELETE FROM doc_chunk WHERE id = #{id}
+    </delete>
+</mapper>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.pomelo.mapper.UserMapper">
+    <select id="findByUsername" resultType="org.pomelo.domain.auth.UserEntity">
+        SELECT * FROM sys_user WHERE username = #{username}
+    </select>
+    <select id="existsByUsername" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM sys_user WHERE username = #{username}
+    </select>
+    <select id="findAll" resultType="org.pomelo.domain.auth.UserEntity">
+        SELECT * FROM sys_user ORDER BY created_at DESC
+    </select>
+    <select id="findById" resultType="org.pomelo.domain.auth.UserEntity">
+        SELECT * FROM sys_user WHERE id = #{id}
+    </select>
+    <insert id="insert">
+        INSERT INTO sys_user (id, username, password, nickname, role, enabled, created_at)
+        VALUES (#{id}, #{username}, #{password}, #{nickname}, #{role}, #{enabled}, #{createdAt})
+    </insert>
+    <update id="update">
+        UPDATE sys_user SET username=#{username}, password=#{password}, nickname=#{nickname},
+            role=#{role}, enabled=#{enabled}
+        WHERE id=#{id}
+    </update>
+    <delete id="deleteById">
+        DELETE FROM sys_user WHERE id = #{id}
+    </delete>
+</mapper>

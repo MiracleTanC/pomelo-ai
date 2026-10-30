@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.pomelo.mapper.DocTagMapper">
+    <select id="findByDocId" resultType="org.pomelo.domain.doc.DocTag">
+        SELECT * FROM doc_tag WHERE doc_id = #{docId}
+    </select>
+    <select id="findByKbId" resultType="org.pomelo.domain.doc.DocTag">
+        SELECT * FROM doc_tag WHERE kb_id = #{kbId}
+    </select>
+    <select id="findByKbIdAndTagIn" resultType="org.pomelo.domain.doc.DocTag">
+        SELECT * FROM doc_tag WHERE kb_id = #{kbId} AND tag IN
+        <foreach collection="tags" item="t" open="(" separator="," close=")">#{t}</foreach>
+    </select>
+    <delete id="deleteByDocId">
+        DELETE FROM doc_tag WHERE doc_id = #{docId}
+    </delete>
+    <delete id="deleteByKbId">
+        DELETE FROM doc_tag WHERE kb_id = #{kbId}
+    </delete>
+    <insert id="insert">
+        INSERT INTO doc_tag (id, kb_id, doc_id, tag, created_at)
+        VALUES (#{id}, #{kbId}, #{docId}, #{tag}, #{createdAt})
+    </insert>
+    <delete id="deleteById">
+        DELETE FROM doc_tag WHERE id = #{id}
+    </delete>
+</mapper>

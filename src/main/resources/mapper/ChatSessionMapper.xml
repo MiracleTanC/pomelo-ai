@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.pomelo.mapper.ChatSessionMapper">
+    <select id="findById" resultType="org.pomelo.domain.chat.ChatSession">
+        SELECT * FROM chat_session WHERE id = #{id}
+    </select>
+    <select id="findAllByOrderByUpdatedAtDesc" resultType="org.pomelo.domain.chat.ChatSession">
+        SELECT * FROM chat_session ORDER BY updated_at DESC
+    </select>
+    <insert id="insert">
+        INSERT INTO chat_session (id, kb_id, title, created_at, updated_at)
+        VALUES (#{id}, #{kbId}, #{title}, #{createdAt}, #{updatedAt})
+    </insert>
+    <update id="update">
+        UPDATE chat_session SET kb_id=#{kbId}, title=#{title}, updated_at=#{updatedAt}
+        WHERE id=#{id}
+    </update>
+    <delete id="deleteById">
+        DELETE FROM chat_session WHERE id = #{id}
+    </delete>
+</mapper>

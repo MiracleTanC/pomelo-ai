@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.pomelo.mapper.DocumentMapper">
+    <select id="findById" resultType="org.pomelo.domain.doc.Document">
+        SELECT * FROM doc WHERE id = #{id}
+    </select>
+    <select id="findByKbIdOrderByCreatedAtDesc" resultType="org.pomelo.domain.doc.Document">
+        SELECT * FROM doc WHERE kb_id = #{kbId} ORDER BY created_at DESC
+    </select>
+    <select id="findByKbIdAndStatusIn" resultType="org.pomelo.domain.doc.Document">
+        SELECT * FROM doc WHERE kb_id = #{kbId} AND status IN
+        <foreach collection="statuses" item="s" open="(" separator="," close=")">#{s}</foreach>
+    </select>
+    <select id="findByKbIdAndStatusNot" resultType="org.pomelo.domain.doc.Document">
+        SELECT * FROM doc WHERE kb_id = #{kbId} AND status != #{status}
+    </select>
+    <select id="findByKbIdAndSha256" resultType="org.pomelo.domain.doc.Document">
+        SELECT * FROM doc WHERE kb_id = #{kbId} AND sha256 = #{sha256}
+    </select>
+    <select id="countByKbId" resultType="int">
+        SELECT COUNT(*) FROM doc WHERE kb_id = #{kbId}
+    </select>
+    <select id="countByKbIdAndStatus" resultType="int">
+        SELECT COUNT(*) FROM doc WHERE kb_id = #{kbId} AND status = #{status}
+    </select>
+    <insert id="insert">
+        INSERT INTO doc (id, kb_id, name, file_path, file_size, mime_type, sha256, parsed_content,
+            status, chunk_count, vectorized_chunks, error_msg, created_at, updated_at, parsed_at,
+            chunked_at, vectorized_at, folder_id, enabled)
+        VALUES (#{id}, #{kbId}, #{name}, #{filePath}, #{fileSize}, #{mimeType}, #{sha256}, #{parsedContent},
+            #{status}, #{chunkCount}, #{vectorizedChunks}, #{errorMsg}, #{createdAt}, #{updatedAt}, #{parsedAt},
+            #{chunkedAt}, #{vectorizedAt}, #{folderId}, #{enabled})
+    </insert>
+    <update id="update">
+        UPDATE doc SET kb_id=#{kbId}, name=#{name}, file_path=#{filePath}, file_size=#{fileSize},
+            mime_type=#{mimeType}, sha256=#{sha256}, parsed_content=#{parsedContent}, status=#{status},
+            chunk_count=#{chunkCount}, vectorized_chunks=#{vectorizedChunks}, error_msg=#{errorMsg},
+            updated_at=#{updatedAt}, parsed_at=#{parsedAt}, chunked_at=#{chunkedAt},
+            vectorized_at=#{vectorizedAt}, folder_id=#{folderId}, enabled=#{enabled}
+        WHERE id=#{id}
+    </update>
+    <delete id="deleteById">
+        DELETE FROM doc WHERE id = #{id}
+    </delete>
+</mapper>

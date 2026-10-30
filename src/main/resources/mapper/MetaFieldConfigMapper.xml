@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.pomelo.mapper.MetaFieldConfigMapper">
+    <select id="findById" resultType="org.pomelo.domain.kb.MetaFieldConfig">
+        SELECT * FROM meta_field_config WHERE id = #{id}
+    </select>
+    <select id="findByKbIdOrderBySortOrderAsc" resultType="org.pomelo.domain.kb.MetaFieldConfig">
+        SELECT * FROM meta_field_config WHERE kb_id = #{kbId} ORDER BY sort_order ASC
+    </select>
+    <select id="findByKbIdAndEnabledTrueOrderBySortOrderAsc" resultType="org.pomelo.domain.kb.MetaFieldConfig">
+        SELECT * FROM meta_field_config WHERE kb_id = #{kbId} AND enabled = 1 ORDER BY sort_order ASC
+    </select>
+    <select id="findByKbIdAndFieldKey" resultType="org.pomelo.domain.kb.MetaFieldConfig">
+        SELECT * FROM meta_field_config WHERE kb_id = #{kbId} AND field_key = #{fieldKey}
+    </select>
+    <delete id="deleteByKbId">
+        DELETE FROM meta_field_config WHERE kb_id = #{kbId}
+    </delete>
+    <insert id="insert">
+        INSERT INTO meta_field_config (id, kb_id, field_key, field_name, field_type, extract_type,
+            extract_rule, required, searchable, vectorized, display_in_list, sort_order, enabled, created_at)
+        VALUES (#{id}, #{kbId}, #{fieldKey}, #{fieldName}, #{fieldType}, #{extractType}, #{extractRule},
+            #{required}, #{searchable}, #{vectorized}, #{displayInList}, #{sortOrder}, #{enabled}, #{createdAt})
+    </insert>
+    <insert id="batchInsert">
+        INSERT INTO meta_field_config (id, kb_id, field_key, field_name, field_type, extract_type,
+            extract_rule, required, searchable, vectorized, display_in_list, sort_order, enabled, created_at)
+        VALUES
+        <foreach collection="list" item="c" separator=",">
+            (#{c.id}, #{c.kbId}, #{c.fieldKey}, #{c.fieldName}, #{c.fieldType}, #{c.extractType}, #{c.extractRule},
+            #{c.required}, #{c.searchable}, #{c.vectorized}, #{c.displayInList}, #{c.sortOrder}, #{c.enabled}, #{c.createdAt})
+        </foreach>
+    </insert>
+    <update id="update">
+        UPDATE meta_field_config SET field_name=#{fieldName}, field_type=#{fieldType},
+            extract_type=#{extractType}, extract_rule=#{extractRule}, required=#{required},
+            searchable=#{searchable}, vectorized=#{vectorized}, display_in_list=#{displayInList},
+            sort_order=#{sortOrder}, enabled=#{enabled}
+        WHERE id=#{id}
+    </update>
+    <delete id="deleteById">
+        DELETE FROM meta_field_config WHERE id = #{id}
+    </delete>
+</mapper>
