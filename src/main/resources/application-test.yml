@@ -1,0 +1,78 @@
+# ==================== 测试环境配置模板（无真实秘钥，用于提交 Git） ====================
+# 复制此文件为 application-dev.yml 或 application-release.yml，替换占位符为真实值后使用
+# 启动: java -jar app.jar --spring.profiles.active=test
+
+spring:
+  # ---- 数据源 ----
+  # url: 替换为你的 MySQL 地址（createDatabaseIfNotExist=true 自动建库）
+  # username / password: 替换为你的 MySQL 账号密码
+  datasource:
+    url: jdbc:mysql://<MYSQL_HOST>:3306/pomelo_ai?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+    username: <MYSQL_USERNAME>
+    password: <MYSQL_PASSWORD>
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  # ---- Redis ----
+  # host / port: 替换为你的 Redis 地址
+  data:
+    redis:
+      host: <REDIS_HOST>
+      port: 6379
+      database: 0
+      # password: <REDIS_PASSWORD>   # 如 Redis 设了密码则取消注释
+
+pomelo:
+  # ---- 认证密码 ----
+  # 系统管理员登录密码（用户名在 application.yml 中配置为 admin）
+  auth:
+    password: <ADMIN_PASSWORD>
+
+  # ---- OSS 阿里云对象存储 ----
+  # endpoint: OSS 节点，如 oss-cn-beijing.aliyuncs.com（需与 bucket 所在区域一致）
+  # bucket: OSS 桶名
+  # access-key-id / access-key-secret: 阿里云 RAM 用户密钥
+  #   获取方式：阿里云控制台 → RAM 访问控制 → 用户 → 创建 AccessKey
+  #   权限要求：对指定 bucket 有 oss:PutObject / oss:GetObject / oss:DeleteObject 权限
+  storage:
+    upload-dir: ./data/uploads
+    oss:
+      endpoint: <OSS_ENDPOINT>               # 例: oss-cn-beijing.aliyuncs.com
+      bucket: <OSS_BUCKET>                   # 例: pomelo-ai
+      custom-domain: ""                      # 自定义域名（无则留空）
+      access-key-id: "<OSS_ACCESS_KEY_ID>"
+      access-key-secret: "<OSS_ACCESS_KEY_SECRET>"
+
+  # ---- MinerU API Key ----
+  # 获取方式：https://mineru.net → 注册 → 个人中心 → API Key
+  mineru:
+    cloud:
+      api-key: "<MINERU_API_KEY>"            # 例: sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+  # ---- LLM 配置（二选一） ----
+  # 方式一：本地 Ollama（无需 API Key，但需本机运行 Ollama 并拉取模型）
+  #   ollama pull qwen2.5:7b
+  #   ollama pull bge-m3
+  # 方式二：OpenAI 兼容云服务（DeepSeek + 硅基流动）
+  llm:
+    # provider: ollama | openai-compatible
+    provider: ollama
+    embed-dimension: 1024                    # bge-m3 = 1024, nomic-embed-text = 768
+
+    # ---- Ollama 本地模式 ----
+    ollama:
+      base-url: http://localhost:11434
+      chat-model: qwen2.5:7b
+      embed-model: bge-m3
+      embed-dimension: 1024
+
+    # ---- OpenAI 兼容云服务模式（provider=openai-compatible 时使用） ----
+    # DeepSeek: https://platform.deepseek.com/ → API Keys
+    # 硅基流动: https://siliconflow.cn/ → API 密钥
+    chat:
+      base-url: https://api.deepseek.com/v1
+      api-key: "<DEEPSEEK_API_KEY>"          # 例: sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      model: deepseek-chat
+    embed:
+      base-url: https://api.siliconflow.cn/v1
+      api-key: "<SILICONFLOW_API_KEY>"       # 例: sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      model: BAAI/bge-m3
+      dimension: 1024
