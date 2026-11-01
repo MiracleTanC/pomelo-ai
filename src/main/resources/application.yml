@@ -1,61 +1,63 @@
+# ==================== 公共配置（所有环境完全相同，零秘钥） ====================
 server:
   port: 8080
 
 spring:
   application:
     name: pomelo-ai
-  datasource:
-    url: jdbc:mysql://localhost:3306/pomelo_ai?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
-    username: root
-    password: root
-    driver-class-name: com.mysql.cj.jdbc.Driver
+  profiles:
+    active: dev
   sql:
     init:
       mode: always
       schema-locations: classpath:schema.sql
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      database: 0
   servlet:
     multipart:
       max-file-size: 100MB
       max-request-size: 100MB
 
 pomelo:
-  storage:
-    upload-dir: ./data/uploads
   cors:
-    # 前端独立部署的访问地址（逗号分隔），开发用 5173/5174，生产加实际域名
     allowed-origins: http://localhost:5173,http://localhost:5174
-  ollama:
-    base-url: http://localhost:11434
-    chat-model: qwen2.5:7b
-    embed-model: nomic-embed-text
-    embed-dimension: 768
+
+  # ---- LLM 通用参数（provider 和秘钥在 dev/release 中） ----
+  llm:
     temperature: 0.7
-    num-predict: 2048
-    timeout-seconds: 300
+    max-tokens: 2048
+    timeout-seconds: 120
+
+  # ---- Milvus 连接（各环境相同） ----
   milvus:
     host: localhost
     port: 19530
     collection-prefix: pomelo_
+
+  # ---- MinerU 公共配置（api-key 在 dev/release 中） ----
   mineru:
-    enabled: false
-    base-url: http://localhost:8000
+    enabled: true
+    mode: cloud
+    local:
+      base-url: http://localhost:8000
+    cloud:
+      base-url: https://mineru.net/api/v4
+      model-version: vlm
     tier: standard
     timeout-seconds: 600
+
+  # ---- 切片 ----
   chunk:
     size: 500
     overlap: 50
+
+  # ---- RAG ----
   rag:
     top-k: 8
     rerank-top-k: 4
     max-iterations: 3
+
+  # ---- 认证公共部分（密码在 dev/release 中） ----
   auth:
     username: admin
-    password: admin123
     token-ttl-minutes: 720
 
 logging:

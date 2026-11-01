@@ -8,12 +8,14 @@ import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentInformation;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.pomelo.core.storage.OssStorageService;
 import org.pomelo.domain.doc.Document;
 import org.pomelo.domain.doc.DocMetadata;
 import org.pomelo.domain.kb.MetaFieldConfig;
 import org.springframework.stereotype.Component;
 
 import java.io.FileInputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -28,6 +30,7 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class MetadataExtractor {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd")
@@ -36,14 +39,11 @@ public class MetadataExtractor {
             .withZone(ZoneId.systemDefault());
 
     private final ChatModel chatModel;
+    private final OssStorageService ossStorage;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** LLM 提取时截取正文的最大字符数（避免超长 prompt） */
     private static final int MAX_LLM_CONTENT = 3000;
-
-    public MetadataExtractor(ChatModel chatModel) {
-        this.chatModel = chatModel;
-    }
 
     /**
      * 按知识库字段配置提取文档元数据。
@@ -202,11 +202,13 @@ public class MetadataExtractor {
     private Map<String, String> loadDocProperties(Document doc) {
         Map<String, String> props = new HashMap<>();
         if (doc.getFilePath() == null || doc.getFilePath().isBlank()) return props;
-        Path path = Path.of(doc.getFilePath());
         String name = doc.getName() == null ? "" : doc.getName().toLowerCase();
+        // 从 OSS 下载到临时文件读取文档属性
+        Path tempFile = null;
         try {
+            tempFile = ossStorage.downloadToTemp(doc.getFilePath());
             if (name.endsWith(".pdf")) {
-                try (PDDocument pdf = Loader.loadPDF(path.toFile())) {
+                try (PDDocument pdf = Loader.loadPDF(tempFile.toFile())) {
                     PDDocumentInformation info = pdf.getDocumentInformation();
                     putIfNotNull(props, "title", info.getTitle());
                     putIfNotNull(props, "author", info.getAuthor());
@@ -224,7 +226,7 @@ public class MetadataExtractor {
                     }
                 }
             } else if (name.endsWith(".docx")) {
-                try (FileInputStream fis = new FileInputStream(path.toFile());
+                try (FileInputStream fis = new FileInputStream(tempFile.toFile());
                      XWPFDocument word = new XWPFDocument(fis)) {
                     var core = word.getProperties().getCoreProperties();
                     putIfNotNull(props, "title", core.getTitle());
@@ -240,7 +242,11 @@ public class MetadataExtractor {
                 }
             }
         } catch (Exception e) {
-            log.warn("读取文档元数据失败: {}", e.getMessage());
+            log.warn("读取文档元数据失败: {} -> {}", doc.getName(), e.getMessage());
+        } finally {
+            if (tempFile != null) {
+                try { Files.deleteIfExists(tempFile); } catch (Exception ignored) {}
+            }
         }
         return props;
     }

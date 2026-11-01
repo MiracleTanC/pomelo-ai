@@ -12,7 +12,7 @@ import java.util.*;
  * 向量可视化降维：对知识库的向量做 PCA → 2D 散点。
  * <p>
  * 轻量实现：不引入第三方 t-SNE 库，使用 PCA（主成分分析）做 2D 降维，
- * 对 768 维向量计算协方差矩阵的前两个特征向量投影。
+ * 对向量计算协方差矩阵的前两个特征向量投影。
  * 采样最多 500 条避免计算过重。
  */
 @Slf4j
@@ -22,6 +22,9 @@ public class VectorVisualizer {
 
     private final MilvusVectorStore vectorStore;
 
+    @org.springframework.beans.factory.annotation.Value("${pomelo.llm.embed-dimension}")
+    private int dimension;
+
     /** 最大采样数 */
     private static final int MAX_SAMPLES = 500;
 
@@ -30,15 +33,15 @@ public class VectorVisualizer {
      */
     public VisualizationResult visualize(String kbId) {
         // 采样：用空向量做 query 召回（Milvus 不支持全量扫描，用随机向量近似采样）
-        float[] probe = new float[768];
+        float[] probe = new float[dimension];
         Random rnd = new Random(42);
-        for (int i = 0; i < 768; i++) probe[i] = rnd.nextFloat() * 0.1f;
+        for (int i = 0; i < dimension; i++) probe[i] = rnd.nextFloat() * 0.1f;
 
         List<RetrievedChunk> samples = new ArrayList<>();
         // 多次采样不同区域
         for (int s = 0; s < 5 && samples.size() < MAX_SAMPLES; s++) {
-            float[] q = new float[768];
-            for (int i = 0; i < 768; i++) q[i] = (rnd.nextFloat() - 0.5f) * 2;
+            float[] q = new float[dimension];
+            for (int i = 0; i < dimension; i++) q[i] = (rnd.nextFloat() - 0.5f) * 2;
             try {
                 List<RetrievedChunk> hits = vectorStore.search(kbId, q, 100, "content", null);
                 for (RetrievedChunk h : hits) {
@@ -100,7 +103,7 @@ public class VectorVisualizer {
             for (int j = 0; j < dim; j++) centered[i][j] = vectors.get(i)[j] - mean[j];
         }
 
-        // 2. 协方差矩阵 dim×dim（对 768 维太大，改用 SVD 近似）
+        // 2. 协方差矩阵 dim×dim（对高维太大，改用 SVD 近似）
         // 简化实现：用 power iteration 找前两个主成分
         double[] pc1 = powerIteration(centered, dim, n, 100);
         // 去除 pc1 分量

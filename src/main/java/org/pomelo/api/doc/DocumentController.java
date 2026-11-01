@@ -7,15 +7,20 @@ import org.pomelo.api.doc.vo.DocMetadataVo;
 import org.pomelo.api.doc.vo.DocVo;
 import org.pomelo.common.api.Result;
 import org.pomelo.common.enums.DocStatus;
+import org.pomelo.core.storage.OssStorageService;
 import org.pomelo.domain.doc.DocChunk;
 import org.pomelo.domain.doc.DocMetadata;
 import org.pomelo.domain.doc.Document;
 import org.pomelo.domain.kb.KbStats;
 import org.pomelo.service.DocumentService;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 @RestController
@@ -24,6 +29,7 @@ import java.util.List;
 public class DocumentController {
 
     private final DocumentService docService;
+    private final OssStorageService ossStorage;
 
     /** 单文件上传 */
     @PostMapping("/upload/{kbId}")
@@ -143,6 +149,35 @@ public class DocumentController {
     public Result<Void> delete(@PathVariable String docId) {
         docService.delete(docId);
         return Result.ok();
+    }
+
+    /** 文档内图片代理：从 OSS 读取 MinerU 解析结果中的图片 */
+    @GetMapping("/image/{docId}/{filename}")
+    public ResponseEntity<byte[]> getImage(@PathVariable String docId,
+                                           @PathVariable String filename) {
+        String objectPath = docId + "/images/" + filename;
+        try {
+            Path temp = ossStorage.downloadToTemp(objectPath);
+            try {
+                byte[] data = Files.readAllBytes(temp);
+                // 根据扩展名判断 Content-Type
+                String ext = filename.toLowerCase();
+                String contentType = ext.endsWith(".png") ? "image/png"
+                        : ext.endsWith(".gif") ? "image/gif"
+                        : ext.endsWith(".svg") ? "image/svg+xml"
+                        : ext.endsWith(".webp") ? "image/webp"
+                        : ext.endsWith(".bmp") ? "image/bmp"
+                        : "image/jpeg";  // .jpg / .jpeg 默认
+                return ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(contentType))
+                        .header("Cache-Control", "max-age=86400")
+                        .body(data);
+            } finally {
+                Files.deleteIfExists(temp);
+            }
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     // ==================== VO 转换 ====================

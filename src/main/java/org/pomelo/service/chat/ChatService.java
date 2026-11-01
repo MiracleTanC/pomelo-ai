@@ -1,5 +1,5 @@
 package org.pomelo.service.chat;
-import org.pomelo.core.ollama.OllamaStreamingClient;
+import org.pomelo.core.ollama.StreamingChatClient;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,7 +39,7 @@ public class ChatService {
     private final ChatMessageMapper messageRepo;
     private final ChatHistoryService historyService;
     private final SelfRagOrchestrator selfRag;
-    private final OllamaStreamingClient streamingClient;
+    private final StreamingChatClient streamingClient;
 
     private final ObjectMapper mapper = new ObjectMapper();
 

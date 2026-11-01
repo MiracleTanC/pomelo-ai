@@ -9,6 +9,7 @@ import org.pomelo.core.metadata.MetadataExtractor;
 import org.pomelo.core.milvus.MilvusVectorStore;
 import org.pomelo.core.ollama.EmbeddingService;
 import org.pomelo.core.parser.ParserDispatcher;
+import org.pomelo.core.storage.OssStorageService;
 import org.pomelo.domain.chunk.TextChunk;
 import org.pomelo.domain.doc.DocChunk;
 import org.pomelo.domain.doc.DocFolder;
@@ -68,6 +69,7 @@ public class DocumentService {
     private final KnowledgeBaseService kbService;
     private final MetadataExtractor metadataExtractor;
     private final org.pomelo.core.rag.Bm25Indexer bm25Indexer;
+    private final OssStorageService ossStorage;
 
     /** 自注入代理对象，解决 @Async / @Transactional 自调用失效问题 */
     @Autowired
@@ -79,7 +81,11 @@ public class DocumentService {
 
     // ==================== 上传 ====================
 
-    @Transactional
+    /**
+     * 单文件上传：存文件 + INSERT doc 记录（单条插入天然原子，不需要 @Transactional）。
+     * 若开启自动向量化，异步触发加工流水线。
+     * 注意：不加 @Transactional，确保 insert 立即提交，异步 ingest 能查到 doc。
+     */
     public Document upload(String kbId, MultipartFile file) throws IOException {
         kbService.getEntity(kbId);
         String original = file.getOriginalFilename();
@@ -87,19 +93,21 @@ public class DocumentService {
             throw new BizException("文件名不能为空");
         }
 
-        Path dir = Paths.get(uploadDir).toAbsolutePath().resolve(kbId);
-        Files.createDirectories(dir);
-        String fileName = System.currentTimeMillis() + "_" + original;
-        Path target = dir.resolve(fileName);
-        file.transferTo(target);
+        // 上传到 OSS
+        String objectPath = OssStorageService.buildObjectPath(kbId, original);
+        ossStorage.upload(objectPath, file.getInputStream(), file.getSize());
 
-        String sha256 = sha256(target);
+        // SHA-256（从 MultipartFile 计算，避免再从 OSS 下载一遍）
+        Path tempForHash = Files.createTempFile("pomelo-hash-", null);
+        file.transferTo(tempForHash.toFile());
+        String sha256 = sha256(tempForHash);
+        Files.deleteIfExists(tempForHash);
 
         Document doc = Document.builder()
                 .id(UUID.randomUUID().toString())
                 .kbId(kbId)
                 .name(original)
-                .filePath(target.toString())
+                .filePath(objectPath)  // 存储 OSS 对象路径
                 .fileSize(file.getSize())
                 .mimeType(file.getContentType())
                 .sha256(sha256)
@@ -109,15 +117,16 @@ public class DocumentService {
                 .build();
         docRepository.insert(doc);
 
-        // 若知识库开启自动向量化，异步触发完整流水线
+        // 若知识库开启自动向量化，异步触发完整流水线（insert 已提交，ingest 可查到 doc）
         if (kbService.getEntity(kbId).isAutoVectorize()) {
             self.ingest(doc.getId());
         }
         return doc;
     }
 
-    /** 批量上传 */
-    @Transactional
+    /**
+     * 批量上传：逐个上传，单个失败不影响其他文件（不需要整体事务）。
+     */
     public List<Document> uploadBatch(String kbId, MultipartFile[] files) throws IOException {
         List<Document> docs = new ArrayList<>();
         for (MultipartFile f : files) {
@@ -135,7 +144,10 @@ public class DocumentService {
         if (doc == null) return;
         try {
             updateStatus(doc, DocStatus.PARSING, null);
-            ParsedDocument parsed = parser.parse(Path.of(doc.getFilePath()), doc.getName());
+            // 从 OSS 下载到临时文件再解析
+            Path tempFile = ossStorage.downloadToTemp(doc.getFilePath());
+            try {
+                ParsedDocument parsed = parser.parse(tempFile, doc.getName(), doc.getFilePath(), doc.getId());
 
             // 保存解析结果纯文本
             String parsedContent = parsed.blocks().stream()
@@ -155,6 +167,9 @@ public class DocumentService {
 
             updateStatus(doc, DocStatus.PARSED, null);
             log.info("文档解析完成: {}", doc.getName());
+            } finally {
+                Files.deleteIfExists(tempFile);
+            }
         } catch (Exception e) {
             log.error("文档解析失败: {}", doc.getName(), e);
             updateStatus(doc, DocStatus.PARSE_FAILED, truncate(e.getMessage(), 900));
@@ -238,18 +253,24 @@ public class DocumentService {
             // 1. 解析（若未解析）
             if (doc.getParsedContent() == null) {
                 updateStatus(doc, DocStatus.PARSING, null);
-                ParsedDocument parsed = parser.parse(Path.of(doc.getFilePath()), doc.getName());
-                String parsedContent = parsed.blocks().stream()
-                        .map(ParsedBlock::text).collect(Collectors.joining("\n\n"));
-                doc.setParsedContent(parsedContent);
-                doc.setParsedAt(Instant.now());
-                docRepository.update(doc);
+                // 从 OSS 下载到临时文件再解析
+                Path tempFile = ossStorage.downloadToTemp(doc.getFilePath());
                 try {
-                    self.extractAndSaveMetadata(doc);
-                } catch (Exception e) {
-                    log.warn("元数据提取失败(不影响入库): {} -> {}", doc.getName(), e.getMessage());
+                    ParsedDocument parsed = parser.parse(tempFile, doc.getName(), doc.getFilePath(), doc.getId());
+                    String parsedContent = parsed.blocks().stream()
+                            .map(ParsedBlock::text).collect(Collectors.joining("\n\n"));
+                    doc.setParsedContent(parsedContent);
+                    doc.setParsedAt(Instant.now());
+                    docRepository.update(doc);
+                    try {
+                        self.extractAndSaveMetadata(doc);
+                    } catch (Exception e) {
+                        log.warn("元数据提取失败(不影响入库): {} -> {}", doc.getName(), e.getMessage());
+                    }
+                    updateStatus(doc, DocStatus.PARSED, null);
+                } finally {
+                    Files.deleteIfExists(tempFile);
                 }
-                updateStatus(doc, DocStatus.PARSED, null);
             }
 
             // 2. 切片（若未切片）
@@ -346,13 +367,13 @@ public class DocumentService {
         metadataRepository.deleteByDocId(docId);
         // 删标签
         tagRepository.deleteByDocId(docId);
-        // 删本地文件
+        // 删 OSS 源文件
         try {
             if (doc.getFilePath() != null) {
-                Files.deleteIfExists(Path.of(doc.getFilePath()));
+                ossStorage.delete(doc.getFilePath());
             }
-        } catch (IOException e) {
-            log.warn("删除本地文件失败: {}", doc.getFilePath());
+        } catch (Exception e) {
+            log.warn("删除 OSS 文件失败: {}", doc.getFilePath());
         }
         // 删文档记录
         docRepository.deleteById(doc.getId());

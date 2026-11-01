@@ -8,8 +8,11 @@ import io.milvus.v2.common.DataType;
 import io.milvus.v2.common.IndexParam;
 import io.milvus.v2.service.collection.request.AddFieldReq;
 import io.milvus.v2.service.collection.request.CreateCollectionReq;
+import io.milvus.v2.service.collection.request.DescribeCollectionReq;
+import io.milvus.v2.service.collection.request.DropCollectionReq;
 import io.milvus.v2.service.collection.request.HasCollectionReq;
 import io.milvus.v2.service.collection.request.LoadCollectionReq;
+import io.milvus.v2.service.collection.response.DescribeCollectionResp;
 import io.milvus.v2.service.vector.request.DeleteReq;
 import io.milvus.v2.service.vector.request.InsertReq;
 import io.milvus.v2.service.vector.request.SearchReq;
@@ -27,7 +30,7 @@ import java.util.*;
 /**
  * Milvus 向量库：每个知识库对应一个独立 Collection。
  * <p>
- * Schema: id(自增主键) / vector(768维) / kb_id / doc_id / doc_name / page / chunk_index / text
+ * Schema: id(自增主键) / vector(embed-dimension维) / kb_id / doc_id / doc_name / page / chunk_index / text
  * 索引: HNSW + COSINE
  */
 @Slf4j
@@ -41,7 +44,7 @@ public class MilvusVectorStore {
     @Value("${pomelo.milvus.collection-prefix}")
     private String collectionPrefix;
 
-    @Value("${pomelo.ollama.embed-dimension}")
+    @Value("${pomelo.llm.embed-dimension}")
     private int dimension;
 
     public static final String FIELD_ID = "id";
@@ -64,9 +67,29 @@ public class MilvusVectorStore {
 
     /**
      * 确保知识库对应的 Collection 存在并已加载。
+     * 若已存在但维度不匹配则自动删除重建。
      */
     public void ensureCollection(String kbId) {
         String name = collectionName(kbId);
+        if (client.hasCollection(HasCollectionReq.builder().collectionName(name).build())) {
+            // 检查已有 collection 的向量维度是否匹配当前配置
+            try {
+                DescribeCollectionResp desc = client.describeCollection(
+                        DescribeCollectionReq.builder().collectionName(name).build());
+                int existingDim = desc.getCollectionSchema().getFieldSchemaList().stream()
+                        .filter(f -> f.getName().equals(FIELD_VECTOR))
+                        .findFirst()
+                        .map(f -> f.getDimension())
+                        .orElse(0);
+                if (existingDim != 0 && existingDim != dimension) {
+                    log.warn("Collection {} 维度不匹配（已有 {}d，当前配置 {}d），自动删除重建",
+                            name, existingDim, dimension);
+                    client.dropCollection(DropCollectionReq.builder().collectionName(name).build());
+                }
+            } catch (Exception e) {
+                log.warn("检查 Collection 维度失败: {} -> {}", name, e.getMessage());
+            }
+        }
         if (client.hasCollection(HasCollectionReq.builder().collectionName(name).build())) {
             return;
         }

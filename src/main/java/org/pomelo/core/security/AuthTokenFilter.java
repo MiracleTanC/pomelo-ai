@@ -30,6 +30,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     /** 不需要鉴权的路径前缀。 */
     private static final List<String> WHITELIST = List.of(
             "/api/auth/login",
+            "/api/doc/image/",   // 文档图片代理（<img> 标签无法携带 token）
             "/actuator",
             "/error"
     );

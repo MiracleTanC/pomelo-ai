@@ -19,11 +19,12 @@
 
     <properties>
         <java.version>21</java.version>
-        <langchain4j.version>1.22.0</langchain4j.version>
+        <langchain4j.version>1.23.0</langchain4j.version>
         <milvus.version>3.0.12</milvus.version>
         <pdfbox.version>3.0.8</pdfbox.version>
         <poi.version>6.0.0</poi.version>
         <mybatis-spring-boot.version>4.1.0</mybatis-spring-boot.version>
+        <aliyun-oss.version>3.18.5</aliyun-oss.version>
     </properties>
 
     <dependencyManagement>
@@ -77,7 +78,7 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- langchain4j (chat + embedding via Ollama) -->
+        <!-- langchain4j (chat + embedding: Ollama 本地 / OpenAI 兼容在线) -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-core</artifactId>
@@ -85,6 +86,10 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-ollama</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
         </dependency>
 
         <!-- Milvus vector database client (MilvusClientV2) -->
@@ -116,6 +121,13 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+
+        <!-- 阿里云 OSS 对象存储（源文件存储） -->
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>${aliyun-oss.version}</version>
         </dependency>
     </dependencies>
 
