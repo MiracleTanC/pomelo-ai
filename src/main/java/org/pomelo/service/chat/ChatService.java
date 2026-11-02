@@ -1,5 +1,4 @@
 package org.pomelo.service.chat;
-import org.pomelo.core.ollama.StreamingChatClient;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,20 +14,20 @@ import org.pomelo.mapper.ChatSessionMapper;
 import org.pomelo.common.exception.BizException;
 import org.pomelo.domain.rag.Citation;
 import org.pomelo.domain.rag.RetrievedChunk;
-import org.pomelo.service.rag.PromptTemplates;
 import org.pomelo.service.rag.SelfRagOrchestrator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 
 /**
- * 聊天服务：编排 Self-RAG + 多轮历史 + 流式生成 + 引用来源。
+ * 聊天服务：会话管理 + Self-RAG 编排委托 + 持久化。
+ * <p>
+ * 改造后编排（含流式生成）由 {@link SelfRagOrchestrator#orchestrate} 全权接管，
+ * 本类只负责会话/历史/持久化，不再自行组装 messages 或调用 StreamingChatClient。
  */
 @Slf4j
 @Service
@@ -39,7 +38,6 @@ public class ChatService {
     private final ChatMessageMapper messageRepo;
     private final ChatHistoryService historyService;
     private final SelfRagOrchestrator selfRag;
-    private final StreamingChatClient streamingClient;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -66,7 +64,7 @@ public class ChatService {
     }
 
     /**
-     * 流式问答。生成完成后返回完整答案与引用（同时持久化）。
+     * 流式问答。编排 + 流式生成由 SelfRagOrchestrator 全权接管，本方法只负责持久化。
      */
     public ChatAnswer chatStream(ChatRequest req, Consumer<String> onToken) throws Exception {
         ChatSession session = ensureSession(req);
@@ -79,40 +77,27 @@ public class ChatService {
 
         String context = historyService.asContext(sessionId);
 
-        // Self-RAG 编排
-        SelfRagOrchestrator.Result result = selfRag.orchestrate(req.kbId(), userMsg, context);
+        // Self-RAG 编排（含流式生成）——orchestrate 通过 onToken 推送 token
+        SelfRagOrchestrator.Result result = selfRag.orchestrate(req.kbId(), userMsg, context, onToken);
+        String answer = result.draftAnswer() != null ? result.draftAnswer() : "";
+
+        // 生成引用
         List<RetrievedChunk> chunks = result.contextChunks() == null
                 ? List.of() : result.contextChunks();
         List<Citation> citations = chunks.stream()
                 .map(c -> Citation.from(c, 120))
                 .toList();
 
-        // 组装 LLM messages（system + 历史 + 当前）
-        List<Map<String, String>> messages = new ArrayList<>();
-        String systemPrompt;
-        if (result.retrievalUsed() && !chunks.isEmpty()) {
-            systemPrompt = PromptTemplates.generate(userMsg, context, chunks);
-        } else {
-            systemPrompt = PromptTemplates.directAnswer(context, userMsg);
-        }
-        messages.add(Map.of("role", "system", "content", systemPrompt));
-        messages.add(Map.of("role", "user", "content", userMsg));
-
-        // 流式生成
-        StringBuilder answer = new StringBuilder();
-        String full = streamingClient.streamChat(messages, onToken);
-        answer.append(full);
-
         // 持久化助手消息 + 写入历史
         String citationsJson = citations.isEmpty() ? null : mapper.writeValueAsString(citations);
-        persistMessage(sessionId, "assistant", answer.toString(), citationsJson);
-        historyService.append(sessionId, "assistant", answer.toString());
+        persistMessage(sessionId, "assistant", answer, citationsJson);
+        historyService.append(sessionId, "assistant", answer);
 
         // 更新会话时间
         session.setUpdatedAt(Instant.now());
         sessionRepo.update(session);
 
-        return new ChatAnswer(sessionId, answer.toString(), result.effectiveQuery(), citations);
+        return new ChatAnswer(sessionId, answer, result.effectiveQuery(), citations);
     }
 
     public List<ChatMessageVo> history(String sessionId) {

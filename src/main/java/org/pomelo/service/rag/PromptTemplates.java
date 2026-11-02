@@ -30,23 +30,25 @@ public final class PromptTemplates {
                 userQuery);
     }
 
-    /** 检索必要性判断：返回 yes 或 no。 */
+    /** 检索必要性判断：返回 JSON {"answer": "yes" 或 "no"}。 */
     public static String retrievalNecessity(String userQuery) {
         return """
                 判断以下用户问题是否需要从知识库检索文档才能回答。
                 - 需要事实/数据/特定文档内容 → yes
                 - 闲聊、打招呼、通用常识、对回答本身提问 → no
-                只输出 yes 或 no。
+                只输出 JSON，格式严格如下，不要任何额外文字：
+                {"answer": "yes" 或 "no"}
 
                 用户问题：%s
                 """.formatted(userQuery);
     }
 
-    /** 相关性判断：给定检索片段，判断是否与问题相关，输出 yes 或 no。 */
+    /** 相关性判断：给定检索片段，判断是否与问题相关，返回 JSON {"answer": "yes" 或 "no"}。 */
     public static String relevance(String userQuery, List<RetrievedChunk> chunks) {
         return """
                 判断以下检索片段是否与用户问题相关、可用于回答。
-                只输出 yes 或 no。
+                只输出 JSON，格式严格如下，不要任何额外文字：
+                {"answer": "yes" 或 "no"}
 
                 用户问题：%s
 
@@ -55,11 +57,12 @@ public final class PromptTemplates {
                 """.formatted(userQuery, formatChunks(chunks));
     }
 
-    /** 答案支撑性判断：判断答案是否被检索片段支撑（是否需要重新检索）。返回 supported 或 unsupported。 */
+    /** 答案支撑性判断：判断答案是否被检索片段支撑，返回 JSON {"answer": "supported" 或 "unsupported"}。 */
     public static String supportCheck(String userQuery, String answer, List<RetrievedChunk> chunks) {
         return """
                 判断以下回答是否被提供的检索片段所支撑（事实正确，无幻觉）。
-                只输出 supported 或 unsupported。
+                只输出 JSON，格式严格如下，不要任何额外文字：
+                {"answer": "supported" 或 "unsupported"}
 
                 用户问题：%s
 
