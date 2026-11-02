@@ -6,7 +6,7 @@ spring:
   application:
     name: pomelo-ai
   profiles:
-    active: dev
+    active: release
   sql:
     init:
       mode: always
